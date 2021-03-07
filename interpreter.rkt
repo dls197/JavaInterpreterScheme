@@ -116,7 +116,7 @@ initstate
 
 Mstate
 update state with expression (declare and assign, depending on var or =, large cond with operator with operans, cond on oparand [][][][]see lecture[][])
-
+(= x (+ y 4) ((x y) ((+ y 4) 1))
 Mvalue
 tiggered by operator, does not update state just returns, no change var, extracts info from state by evaluting expressions
 
@@ -133,12 +133,12 @@ Mint and Mbool are subsections of Mvalue
 
 ; interpreter helper function that takes a syntax tree Mstate Mvalue lists and breaks down to be processed using accumulation
 (define interpret
-  (lambda (tree Mstate)
+  (lambda (tree state)
     (cond
       [(null? tree) tree]
-      ;[(list? (car tree)) ((interpret (car tree) Mstate) (interpret (cdr tree) Mstate))] ;potentially for interpreting nested statements
-      [(eq? 'var (caar tree)) (interpret (cdr tree) (var (car tree) Mstate))]
-      [(eq? '= (caar tree)) (interpret (cdr tree) (assign (car tree) Mstate))]
+      ;[(list? (car tree)) ((interpret (car tree) state) (interpret (cdr tree) Mstate))] ;potentially for interpreting nested statements
+      [(eq? 'var (caar tree)) (interpret (cdr tree) (var (car tree) state))]
+      [(eq? '= (caar tree)) (interpret (cdr tree) (assign (car tree) state))]
       )))
       
 
@@ -154,11 +154,11 @@ Mint and Mbool are subsections of Mvalue
 ; assign variables, if null return Mvalue
 ; if not declared error, else assign value
 (define assign
-  (lambda (=lis Mstate)
+  (lambda (=lis state)
     (cond
-      [(null? =lis) (cdr Mstate)]
-      [(not (member? (cadr =lis) (car Mstate)) (error "Variable not recognized: must declare before assign"))]  
-      [else (set (caddr =lis) (cdr Mstate) (indexOf (cadr =lis) (cdr Mstate) 0))])))
+      [(null? =lis) (cdr state)]
+      [(not (member? (cadr =lis) (car state)) (error "Variable not recognized: must declare before assign"))]  
+      [else (set (caddr =lis) (cdr state) (indexOf (cadr =lis) (cdr state) 0))])))
 
 ; print (return as output) variable
 (define return
@@ -173,10 +173,10 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? iflis) '()]
       [(null? (cdr iflis)) '()]
-      [(M-boolean (cadr iflis) state) (Mstate (caddr iflis) state)]
-      [else (if (cdddr iflis) state)]
+      [(M-boolean (cadr iflis) state) (cons (Mstate (caddr iflis) state) cdddr)]
+      [else (Mstate (cdddr iflis) state)]
       )))
-
+; ((if sdfasfds) (while dsafasdf)
 ; if conditional, checks a given conditional in car(cdr) and runs first sublist if #t or second sublist if #f, then it checks the conditional to possibly run itself again
 (define while
   (lambda (whilelis state)
@@ -184,6 +184,7 @@ Mint and Mbool are subsections of Mvalue
       [(null? whilelis) '()]
       [(null? (cdr whilelis)) '()]
       [(M-boolean (cadr whilelis) state) (while whilelis (Mstate (cddr whilelis) state))]
+      [else (Mstate (cdddr whilelis) state)]
       )))
 
 ; member? if list contains atom, for checking if var has been declared or has value, if x is member of Mstate or Mvalue
