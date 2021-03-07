@@ -14,33 +14,75 @@
 (define Mstate
   (lambda (exp state)
     (cond
-      []
+      [(null? state) '(()())]
       )))
 
 (define Mstate_remove
   (lambda (var state)
     (cond
-      []
+      [(null? state) '(()())]
       )))
 
 (define Mvalue
-  (lambda (exp)
+  (lambda (expression state)
     (cond
-      [Mbool]
-      [Mint]
-      )))
+      ((eq? expression 'true) #t)
+      ((eq? expression 'false) #f)
+      ((eq? (operator expression) 'and) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '&&) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) 'or) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
+      ((eq? (operator expression) '<)) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '>)) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '<=)) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '>=)) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '!)) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((number? expression) expression)
+      ((eq? (operator expression) '+) (+ (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '-) (- (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '*) (* (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '/) (quotient (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '%) (remainder (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      (else (error 'bad-operator)))))
 
-(define Mint
-  (lambda (exp)
-    (cond
-      []
-      )))
 
-(define Mbool
-  (lambda (exp)
+(define M-integer
+  (lambda (expression state)
     (cond
-      []
-      )))
+      ((number? expression) expression)
+      ((eq? (operator expression) '+) (+ (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '-) (- (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '*) (* (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '/) (quotient (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) '%) (remainder (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      (else (error 'bad-operator)))))
+
+
+(define M-boolean
+  (lambda (expression state)
+    (cond
+      ((eq? expression 'true) #t)
+      ((eq? expression 'false) #f)
+      ((eq? (operator expression) 'and) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '&&) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) 'or) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
+      ((eq? (operator expression) '<)) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '>)) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '<=)) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '>=)) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '!)) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      (else (error 'bad-operator)))))
+
+
+; ABSTRACTION
+(define operator (lambda (expression) (cadr expression)))
+(define leftoperand car)
+(define rightoperand caddr)
 
      
 #|
