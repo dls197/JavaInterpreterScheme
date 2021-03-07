@@ -12,21 +12,6 @@
 ; initial state
 (define initstate '(()()))
 
-; interpreter helper function that takes a syntax tree Mstate Mvalue lists and breaks down to be processed using accumulation
-(define interpret
-  (lambda (tree state)
-    (cond
-      [(null? tree) tree]
-      [(or (eq? 'var (caar tree)) (eq? '= (caar tree))) (interpret (cdr tree) (Mstate (car tree) state))]
-      [(eq? 'return (caar tree)) (return (car tree) state)]
-      [(eq? 'if (caar tree)) (cons (if (car tree) state) (interpret (cdr tree) state))]
-      [(eq? 'while (caar tree)) (cons (while (car tree) state) (interpret (cdr tree) state))]
-      [else (Mvalue(car tree) state)]
-      )))
-
-; ((var x) (= x 10) (var y (+ (* 3 x) 5)) (while (!= (% y x) 3) (= y (+ y 1))) ((if (> x y) (return x)(else (do this))) () () (()))
-
-
 (define Mstate
   (lambda (exp state)
     (cond
@@ -38,15 +23,15 @@
 ; assignedVal checks if a given variable has been assigned a value. If it has, the value is returned. If not, an error is returned
 (define assignedVal
   (lambda (var state)
-    (assignedVal-split var (car state) (cadr state) state)))     ;calls on assignedVal-split and passes in the variable, the list of declared variables, and the list of declared variables' values
+    (assignedVal-split var (car state) (cadr state))))     ;calls on assignedVal-split and passes in the variable, the list of declared variables, and the list of declared variables' values
 
 ; assignedVal-split is called on by assignedVal. It is given the state in a split form, meaning the two lists inside state are inserted into the function separately
 (define assignedVal-split
-  (lambda (var dlist alist originalState)
+  (lambda (var dlist alist)
     (cond
       [(null? dlist) (error 'variable-not-assigned)]
-      [(eq? var (car dlist)) (Mvalue (car alist) originalState)]
-      (else (assignedVal-split var (cdr dlist) (cdr alist) originalState)))))
+      [(eq? var (car dlist)) (car alist)]
+      (else (assignedVal-split var (cdr dlist) (cdr alist))))))
 
 (define Mstate_remove
   (lambda (var state)
@@ -59,7 +44,6 @@
     (cond
       ((eq? expression 'true) #t)
       ((eq? expression 'false) #f)
-      ((number? expression) expression)
       ((not (list? expression)) (assignedVal expression state))
       ((eq? (operator expression) 'and) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '&&) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
@@ -72,6 +56,7 @@
       ((eq? (operator expression) '<=) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '>=) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((number? expression) expression)
       ((eq? (operator expression) '+) (+ (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
       ((eq? (operator expression) '-) (- (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
       ((eq? (operator expression) '*) (* (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
@@ -131,7 +116,7 @@ initstate
 
 Mstate
 update state with expression (declare and assign, depending on var or =, large cond with operator with operans, cond on oparand [][][][]see lecture[][])
-
+(= x (+ y 4) ((x y) ((+ y 4) 1))
 Mvalue
 tiggered by operator, does not update state just returns, no change var, extracts info from state by evaluting expressions
 
@@ -144,7 +129,18 @@ value of var = value of right hand side
 Mint and Mbool are subsections of Mvalue
 
 
-|#     
+|#
+
+; interpreter helper function that takes a syntax tree Mstate Mvalue lists and breaks down to be processed using accumulation
+(define interpret
+  (lambda (tree state)
+    (cond
+      [(null? tree) tree]
+      ;[(list? (car tree)) ((interpret (car tree) state) (interpret (cdr tree) Mstate))] ;potentially for interpreting nested statements
+      [(eq? 'var (caar tree)) (interpret (cdr tree) (var (car tree) state))]
+      [(eq? '= (caar tree)) (interpret (cdr tree) (assign (car tree) state))]
+      )))
+      
 
 ; declare variable, if its null or already declared just return Mstate IMPORTANT
 ; otherwise add to Mstate and add null to Mvalue
@@ -153,8 +149,7 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? declis) state]
       [(member? (cdr declis) (car state)) state]    ; this is how to check if something is declared
-      [(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))]
-      [else (cons (cons (cadr declis) (car state)) (cons null (cadr state)))])))
+      [else (cons (cadr declis) (car state)) (cons null (cdr state))])))
 
 ; assign variables, if null return Mvalue
 ; if not declared error, else assign value
@@ -173,23 +168,30 @@ Mint and Mbool are subsections of Mvalue
       [else (Mvalue returnlis state)])))
 
 ; if conditional, checks a given conditional in car(cdr) and runs car(cdr(cdr)) if #t or car(cdr(cdr(cdr))) sublist if #f
+; ((if cond exp (if cond exp (if cond exp))) (return x))
+; if
+; else if
+; if
+;(if (> x y) (return x) (if (> (* x x) y) (return (* x x)) (if (> (* x (+ x x)) y) (return (* x (+ x x))) (return (- y 1))))))
 (define if
   (lambda (iflis state)
     (cond
       [(null? iflis) '()]
       [(null? (cdr iflis)) '()]
-      [(M-boolean (cadr iflis) state) (interpret (caddr iflis) state)]
-      [else (interpret (cdddr iflis) state)]
+      [(M-boolean (cadr iflis) state) (cons (Mstate (caddr iflis) state) cdddr)]
+      [else (Mstate (cdddr iflis) state)]
       )))
+; ((if sdfasfds) (while dsafasdf)
 
 ; if conditional, checks a given conditional in car(cdr) and runs first sublist if #t or second sublist if #f, then it checks the conditional to possibly run itself again
+((while (!= (% y x) 3) (= y (+ y 1))) (if (> x y) (return x) (if (> (* x x) y) (return (* x x)) (if (> (* x (+ x x)) y) (return (* x (+ x x))) (return (- y 1))))))
 (define while
   (lambda (whilelis state)
     (cond
       [(null? whilelis) '()]
       [(null? (cdr whilelis)) '()]
-      [(M-boolean (cadr whilelis) state) (while whilelis (interpret (cddr whilelis) state))]
-      [else '()]
+      [(M-boolean (cadr whilelis) state) (while whilelis (Mstate (cddr whilelis) state))]
+      [else (Mstate (cdddr whilelis) state)]
       )))
 
 ; member? if list contains atom, for checking if var has been declared or has value, if x is member of Mstate or Mvalue
