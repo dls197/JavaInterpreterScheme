@@ -6,15 +6,76 @@
 ; interpreter base, to run parser and pass to helper function interpret
 (define interpreter
   (lambda (filename)
-    (interpret (parser filename) '() '())
+    (interpret (parser filename) initstate)
     ))
+
+(define initstate '(()()))
+
+(define Mstate
+  (lambda (exp state)
+    (cond
+      []
+      )))
+
+(define Mstate_remove
+  (lambda (var state)
+    (cond
+      []
+      )))
+
+(define Mvalue
+  (lambda (exp)
+    (cond
+      [Mbool]
+      [Mint]
+      )))
+
+(define Mint
+  (lambda (exp)
+    (cond
+      []
+      )))
+
+(define Mbool
+  (lambda (exp)
+    (cond
+      []
+      )))
+
+     
+#|
+before:
+state
+value
+
+Mbool and Mint taken up in operations in value
+
+after:
+initstate
+
+Mstate
+update state with expression (declare and assign, depending on var or =, large cond with operator with operans, cond on oparand [][][][]see lecture[][])
+
+Mvalue
+tiggered by operator, does not update state just returns, no change var, extracts info from state by evaluting expressions
+
+declare value with no value (var, mstate) ((x) ())
+change value with a value (=, mstate) ((x) (1+1)
+prepared value return as single int/bool (called whenever, mvalue) ((x) (2))
+
+value of var = value of right hand side
+
+Mint and Mbool are subsections of Mvalue
+
+
+|#
 
 ; interpreter helper function that takes a syntax tree Mstate Mvalue lists and breaks down to be processed using accumulation
 (define interpret
   (lambda (tree Mstate Mvalue)
     (cond
       [(null? tree) tree]
-      ;[(list? (car tree)) ((interpret (car tree) Mstate Mvalue) (interpret (cdr tree) Mstate Mvalue))] potentially for interpreting nested statements
+      ;[(list? (car tree)) ((interpret (car tree) Mstate Mvalue) (interpret (cdr tree) Mstate Mvalue))] ;potentially for interpreting nested statements
       [(eq? 'var (caar tree)) (interpret (cdr tree) (var (car tree) Mstate Mvalue) Mvalue)]
       [(eq? '= (caar tree)) (interpret (cdr tree) Mstate (assign (car tree) Mstate Mvalue))]
       )))
