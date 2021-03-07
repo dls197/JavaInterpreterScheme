@@ -9,18 +9,18 @@
     (interpret (parser filename) initstate)
     ))
 
-(define initstate '(()()))
+(define initstate '(() ()))
 
 (define Mstate
   (lambda (exp state)
     (cond
-      [(null? state) '(()())]
+      [(null? exp) state]
       )))
 
 (define Mstate_remove
   (lambda (var state)
     (cond
-      [(null? state) '(()())]
+      [(null? state) '(() ())]
       )))
 
 (define Mvalue
@@ -34,11 +34,11 @@
       ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
-      ((eq? (operator expression) '<)) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '>)) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '<=)) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '>=)) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '!)) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '<) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '>) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '<=) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '>=) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((number? expression) expression)
       ((eq? (operator expression) '+) (+ (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
       ((eq? (operator expression) '-) (- (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
@@ -71,17 +71,17 @@
       ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
-      ((eq? (operator expression) '<)) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '>)) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '<=)) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '>=)) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '!)) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '<) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '>) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '<=) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '>=) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       (else (error 'bad-operator)))))
 
 
 ; ABSTRACTION
-(define operator (lambda (expression) (cadr expression)))
-(define leftoperand car)
+(define operator (lambda (expression) (car expression)))
+(define leftoperand cadr)
 (define rightoperand caddr)
 
      
@@ -114,49 +114,64 @@ Mint and Mbool are subsections of Mvalue
 
 ; interpreter helper function that takes a syntax tree Mstate Mvalue lists and breaks down to be processed using accumulation
 (define interpret
-  (lambda (tree Mstate Mvalue)
+  (lambda (tree Mstate)
     (cond
       [(null? tree) tree]
-      ;[(list? (car tree)) ((interpret (car tree) Mstate Mvalue) (interpret (cdr tree) Mstate Mvalue))] ;potentially for interpreting nested statements
-      [(eq? 'var (caar tree)) (interpret (cdr tree) (var (car tree) Mstate Mvalue) Mvalue)]
-      [(eq? '= (caar tree)) (interpret (cdr tree) Mstate (assign (car tree) Mstate Mvalue))]
+      ;[(list? (car tree)) ((interpret (car tree) Mstate) (interpret (cdr tree) Mstate))] ;potentially for interpreting nested statements
+      [(eq? 'var (caar tree)) (interpret (cdr tree) (var (car tree) Mstate))]
+      [(eq? '= (caar tree)) (interpret (cdr tree) (assign (car tree) Mstate))]
       )))
 
 ; declare variable, if its null or already declared just return Mstate IMPORTANT
 ; otherwise add to Mstate and add null to Mvalue
 (define var
-  (lambda (declis Mstate Mvalue)
+  (lambda (declis Mstate)
     (cond
       [(null? declis) Mstate]
-      [(member? (cdr declis) Mstate) Mstate]    ; this is how to check if something is declared
-      [else (cons (cdr declis) Mstate) (cons null Mvalue)])))
+      [(member? (cdr declis) (car Mstate)) Mstate]    ; this is how to check if something is declared
+      [else (cons (cdr declis) (car Mstate)) (cons null (cdr Mstate))])))
 
 ; assign variables, if null return Mvalue
 ; if not declared error, else assign value
 (define assign
-  (lambda (=lis Mstate Mvalue)
+  (lambda (=lis Mstate)
     (cond
-      [(null? =lis) Mvalue]
-      [(not (member? (cadr =lis) Mstate) (error "Variable not recognized: must declare before assign"))]  
-      [else (set (caddr =lis) Mvalue (indexOf (cadr =lis) Mstate 0))])))
+      [(null? =lis) (cdr Mstate)]
+      [(not (member? (cadr =lis) (car Mstate)) (error "Variable not recognized: must declare before assign"))]  
+      [else (set (caddr =lis) (cdr Mstate) (indexOf (cadr =lis) (cdr Mstate) 0))])))
 
 ; print (return as output) variable
 (define return
-  (lambda (returnlis)
+  (lambda (returnlis state)
     (cond
-      [(null? returnlis) returnlis])))
+      [(null? (cdr returnlis)) '()]
+      [else (Mstate (Mvalue (cdr returnlis)) state)]
+      )))
 
 ; if conditional, checks a given conditional in car(cdr) and runs car(cdr(cdr)) if #t or car(cdr(cdr(cdr))) sublist if #f
 (define if
-  (lambda (iflis)
+  (lambda (iflis state)
     (cond
-      [(null? iflis) iflis])))
+      [(null? iflis) '()]
+      [(null? (cdr iflis)) '()]
+      [(M-boolean (cadr iflis)) (Mstate (caddr iflis) state)]
+      [else (if (cdddr iflis) state)]
+      )))
 
 ; if conditional, checks a given conditional in car(cdr) and runs first sublist if #t or second sublist if #f, then it checks the conditional to possibly run itself again
 (define while
-  (lambda (whilelis)
+  (lambda (whilelis state)
     (cond
-      [(null? whilelis) whilelis])))
+      [(null? whilelis) '()]
+      [(null? (cdr whilelis)) '()]
+      [(M-boolean (cadr whilelis)) (while whilelis (Mstate (cddr whilelis) state))]
+      )))
+
+
+
+
+
+
 
 ; member? if list contains atom, for checking if var has been declared or has value, if x is member of Mstate or Mvalue
 (define member?
