@@ -9,18 +9,34 @@
     (interpret (parser filename) initstate)
     ))
 
-(define initstate '(() ()))
+; initial state
+(define initstate '(()()))
 
 (define Mstate
   (lambda (exp state)
     (cond
       [(null? exp) state]
-      )))
+      [(eq? (operator exp) 'var) (var exp state)]
+      [(eq? (operator exp) '=) (assign exp state)]
+      (else state))))
+
+; assignedVal checks if a given variable has been assigned a value. If it has, the value is returned. If not, an error is returned
+(define assignedVal
+  (lambda (var state)
+    (assignedVal-split var (car state) (cadr state))))     ;calls on assignedVal-split and passes in the variable, the list of declared variables, and the list of declared variables' values
+
+; assignedVal-split is called on by assignedVal. It is given the state in a split form, meaning the two lists inside state are inserted into the function separately
+(define assignedVal-split
+  (lambda (var dlist alist)
+    (cond
+      [(null? dlist) (error 'variable-not-assigned)]
+      [(eq? var (car dlist)) (car alist)]
+      (else (assignedVal-split var (cdr dlist) (cdr alist))))))
 
 (define Mstate_remove
   (lambda (var state)
     (cond
-      [(null? state) '(() ())]
+      [(null? state) '(()())]
       )))
 
 (define Mvalue
@@ -28,6 +44,7 @@
     (cond
       ((eq? expression 'true) #t)
       ((eq? expression 'false) #f)
+      ((not (list? expression)) (assignedVal expression state))
       ((eq? (operator expression) 'and) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '&&) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) 'or) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
@@ -52,6 +69,7 @@
   (lambda (expression state)
     (cond
       ((number? expression) expression)
+      ((not (list? expression)) (assignedVal expression state))
       ((eq? (operator expression) '+) (+ (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
       ((eq? (operator expression) '-) (- (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
       ((eq? (operator expression) '*) (* (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
@@ -65,17 +83,18 @@
     (cond
       ((eq? expression 'true) #t)
       ((eq? expression 'false) #f)
+      ((not (list? expression)) (assignedVal expression state))
       ((eq? (operator expression) 'and) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '&&) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) 'or) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
-      ((eq? (operator expression) '<) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '>) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '<=) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '>=) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '<)) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '>)) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '<=)) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '>=)) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '!)) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
       (else (error 'bad-operator)))))
 
 
@@ -121,15 +140,16 @@ Mint and Mbool are subsections of Mvalue
       [(eq? 'var (caar tree)) (interpret (cdr tree) (var (car tree) Mstate))]
       [(eq? '= (caar tree)) (interpret (cdr tree) (assign (car tree) Mstate))]
       )))
+      
 
 ; declare variable, if its null or already declared just return Mstate IMPORTANT
 ; otherwise add to Mstate and add null to Mvalue
 (define var
-  (lambda (declis Mstate)
+  (lambda (declis state)
     (cond
-      [(null? declis) Mstate]
-      [(member? (cdr declis) (car Mstate)) Mstate]    ; this is how to check if something is declared
-      [else (cons (cdr declis) (car Mstate)) (cons null (cdr Mstate))])))
+      [(null? declis) state]
+      [(member? (cdr declis) (car state)) state]    ; this is how to check if something is declared
+      [else (cons (cadr declis) (car state)) (cons null (cdr state))])))
 
 ; assign variables, if null return Mvalue
 ; if not declared error, else assign value
@@ -144,9 +164,8 @@ Mint and Mbool are subsections of Mvalue
 (define return
   (lambda (returnlis state)
     (cond
-      [(null? (cdr returnlis)) '()]
-      [else (Mstate (Mvalue (cdr returnlis)) state)]
-      )))
+      [(null? returnlis) returnlis]
+      [else (Mvalue returnlis state)])))
 
 ; if conditional, checks a given conditional in car(cdr) and runs car(cdr(cdr)) if #t or car(cdr(cdr(cdr))) sublist if #f
 (define if
@@ -154,7 +173,7 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? iflis) '()]
       [(null? (cdr iflis)) '()]
-      [(M-boolean (cadr iflis)) (Mstate (caddr iflis) state)]
+      [(M-boolean (cadr iflis) state) (Mstate (caddr iflis) state)]
       [else (if (cdddr iflis) state)]
       )))
 
@@ -164,14 +183,8 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? whilelis) '()]
       [(null? (cdr whilelis)) '()]
-      [(M-boolean (cadr whilelis)) (while whilelis (Mstate (cddr whilelis) state))]
+      [(M-boolean (cadr whilelis) state) (while whilelis (Mstate (cddr whilelis) state))]
       )))
-
-
-
-
-
-
 
 ; member? if list contains atom, for checking if var has been declared or has value, if x is member of Mstate or Mvalue
 (define member?
@@ -189,7 +202,7 @@ Mint and Mbool are subsections of Mvalue
       [(eq? a (car lis)) i]
       [else (indexOf a (cdr lis) (+ i 1))])))
 
-; change vlaue at index in list
+; change value at index in list
 (define set
   (lambda (val lis i)
     (cond
