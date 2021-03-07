@@ -90,11 +90,11 @@
       ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
-      ((eq? (operator expression) '<)) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '>)) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '<=)) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '>=)) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
-      ((eq? (operator expression) '!)) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))
+      ((eq? (operator expression) '<) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '>) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '<=) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '>=) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
+      ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       (else (error 'bad-operator)))))
 
 
