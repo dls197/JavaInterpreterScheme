@@ -175,7 +175,7 @@ Mint and Mbool are subsections of Mvalue
   (lambda (var val state)
     (cond
       [(eq? (length (cadr state)) 1) (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '()))]
-      [else (cons (car state) (setVal-split var val (car state) (cadr state) state))])))     ;calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
+      [else (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '()))])))     ;calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
 
 ; setVal-split is called on by setVal. It is given the state in a split form, meaning the two lists inside state are inserted into the function separately
 (define setVal-split
