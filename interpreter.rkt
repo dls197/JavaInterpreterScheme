@@ -211,7 +211,7 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? whilelis) '()]
       [(null? (cdr whilelis)) '()]
-      [(Mvalue (cadr whilelis) state) (while whilelis (interpret (cddr whilelis) state))]
+      [(Mvalue (cadr whilelis) state) (while whilelis (Mstate (caddr whilelis) state))]
       [else '()]
       )))
 
