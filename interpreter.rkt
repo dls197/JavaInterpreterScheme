@@ -61,24 +61,36 @@
       ((eq? expression 'false) #f)
       ((number? expression) expression)
       ((not (list? expression)) (assignedVal expression state))
-      ((eq? (operator expression) 'and) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '&&) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) 'or) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
-      ((eq? (operator expression) '<) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '>) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '<=) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '>=) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '+) (+ (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '-) (- (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '*) (* (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '/) (quotient (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '%) (remainder (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
+      ((eq? (operator expression) 'and) (and (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '&&) (and (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) 'or) (or (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '||) (or (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '==) (eq? (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '!=) (not (eq? (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state))))
+      ((eq? (operator expression) '<) (< (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '>) (> (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '<=) (<= (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '>=) (>= (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '!) (not (Mvalue (leftoperand expression) state)))
+      ((eq? (operator expression) '+) (+ (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((and (eq? (operator expression) '-) (eq? (length expression) 2)) (- (Mvalue (leftoperand expression) state)))
+      ((eq? (operator expression) '-) (- (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '*) (* (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '/) (quotient (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '%) (remainder (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ;[(eq? (operator exp) 'var) (Mvalue expression (var expression state))]
+      ;[(eq? (operator exp) '=) (Mvalue expression (assign expression state))]
       (else (error 'bad-operator)))))
 
+
+
+; ABSTRACTION
+(define operator (lambda (expression) (car expression)))
+(define leftoperand cadr)
+(define rightoperand caddr)
+
+     
+#|
 
 (define M-integer
   (lambda (expression state)
@@ -112,14 +124,6 @@
       ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
       (else (error 'bad-operator)))))
 
-
-; ABSTRACTION
-(define operator (lambda (expression) (car expression)))
-(define leftoperand cadr)
-(define rightoperand caddr)
-
-     
-#|
 before:
 state
 value
@@ -153,7 +157,7 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? declis) state]
       [(member? (cdr declis) (car state)) state]    ; this is how to check if something is declared
-      [(eq? (length declis) 3) (assign declis (var (cons(car declis) (cons (cadr declis) '())) state))]   ; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
+      [(eq? (length declis) 3) (assign declis (var (cons (car declis) (cons (cadr declis) '())) state))]   ; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
       ;[(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))] ; if something is declared and assigned at the same time
       [else (cons (cons (cadr declis) (car state)) (cons (cons '() (cadr state)) '()))])))
 
@@ -187,6 +191,8 @@ Mint and Mbool are subsections of Mvalue
   (lambda (returnlis state)
     (cond
       [(null? returnlis) returnlis]
+      [(eq? (cadr returnlis) '#t) 'true]
+      [(eq? (cadr returnlis) '#f) 'false]
       [else (Mvalue returnlis state)])))
 
 ; if conditional, checks a given conditional in car(cdr) and runs car(cdr(cdr)) if #t or car(cdr(cdr(cdr))) sublist if #f
@@ -195,7 +201,7 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? iflis) '()]
       [(null? (cdr iflis)) '()]
-      [(M-boolean (cadr iflis) state) (interpret (caddr iflis) state)]
+      [(Mvalue (cadr iflis) state) (interpret (caddr iflis) state)]
       [else (interpret (cdddr iflis) state)]
       )))
 
@@ -205,7 +211,7 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? whilelis) '()]
       [(null? (cdr whilelis)) '()]
-      [(M-boolean (cadr whilelis) state) (while whilelis (interpret (cddr whilelis) state))]
+      [(Mvalue (cadr whilelis) state) (while whilelis (interpret (cddr whilelis) state))]
       [else '()]
       )))
 
