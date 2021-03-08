@@ -153,7 +153,8 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? declis) state]
       [(member? (cdr declis) (car state)) state]    ; this is how to check if something is declared
-      [(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))] ; if something is declared and assigned at the same time
+      [(eq? (length declis) 3) (assign declis (var (cons(car declis) (cons (cadr declis) '())) state))]   ; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
+      ;[(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))] ; if something is declared and assigned at the same time
       [else (cons (cons (cadr declis) (car state)) (cons (cons '() (cadr state)) '()))])))
 
 ; assign variables, if null return Mvalue
