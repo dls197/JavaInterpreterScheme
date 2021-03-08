@@ -153,8 +153,8 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? declis) state]
       [(member? (cdr declis) (car state)) state]    ; this is how to check if something is declared
-      [(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))]
-      [else (cons (cons (cadr declis) (car state)) (cons null (cadr state)))])))
+      [(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))] ; if something is declared and assigned at the same time
+      [else (cons (cons (cadr declis) (car state)) (cons (cons '() (cadr state)) '()))])))
 
 ; assign variables, if null return Mvalue
 ; if not declared error, else assign value
@@ -162,8 +162,24 @@ Mint and Mbool are subsections of Mvalue
   (lambda (=lis state)
     (cond
       [(null? =lis) (cdr state)]
-      [(not (member? (cadr =lis) (car state)) (error "Variable not recognized: must declare before assign"))]  
-      [else (set (caddr =lis) (cdr state) (indexOf (cadr =lis) (cdr state) 0))])))
+      [(not (member? (cadr =lis) (car state))) (error "Variable not recognized: must declare before assign")]
+      [else (setVal (cadr =lis) (caddr =lis) state)])))
+
+; setVal sets the value of a given variable, errors if it has not been declared yet
+(define setVal
+  (lambda (var val state)
+    (cond
+      [(eq? (length (cadr state)) 1) (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '()))]
+      [else (cons (car state) (setVal-split var val (car state) (cadr state) state))])))     ;calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
+
+; setVal-split is called on by setVal. It is given the state in a split form, meaning the two lists inside state are inserted into the function separately
+(define setVal-split
+  (lambda (var val dlist vlist originalState)
+    (cond
+      [(null? dlist) (error 'variable-not-declared)]
+      ;[(and (eq? (length vlist) 1) (eq? var (car dlist))) (cons (cons val '()) '())]
+      [(eq? var (car dlist)) (cons val (cdr vlist))]
+      (else (cons (cons (car vlist) (setVal-split var val (cdr dlist) (cdr vlist) originalState)) '())))))
 
 ; print (return as output) variable
 (define return
@@ -199,19 +215,3 @@ Mint and Mbool are subsections of Mvalue
       [(null? lis) #f]
       [(eq? a (car lis)) #t]
       [else (member? a (cdr lis))])))
-
-; indexOf gets the index of an atom in a list
-(define indexOf
-  (lambda (a lis i)
-    (cond
-      [(null? lis) -1]
-      [(eq? a (car lis)) i]
-      [else (indexOf a (cdr lis) (+ i 1))])))
-
-; change value at index in list
-(define set
-  (lambda (val lis i)
-    (cond
-      [(null? lis) lis]
-      [(eq? 0 i) (cons val (cdr lis))]
-      [else (cons (car lis) (set val (cdr lis) (- i 1)))])))
