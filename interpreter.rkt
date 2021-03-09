@@ -121,24 +121,26 @@
       [(not (member? (cadr =lis) (car state))) (error "Variable not recognized: must declare before assign")]
       [else (setVal (cadr =lis) (Mvalue (caddr =lis) state) state)])))
 
-; setVal sets the value of a given variable, errors if it has not been declared yet
+; takes two atoms and the state, sets the value of a variable
+; returns an updated state
 (define setVal
   (lambda (var val state)
     (cond
-      ;;[(eq? (length (cadr state)) 1) (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '()))]
       [else (append (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '())) (cddr state))])))     ;calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
 
-; setVal-split is called on by setVal. It is given the state in a split form, meaning the two lists inside state are inserted into the function separately
+; takes two atom and two lists, sets the variable equal to the value specified
+; returns an updated state
+; only called by setVal
 (define setVal-split
   (lambda (var val dlist vlist originalState)
     (cond
       [(null? dlist) (error 'variable-not-declared)]
       [(eq? (length dlist) 1) (cons val (car vlist))]
-      ;[(and (eq? (length vlist) 1) (eq? var (car dlist))) (cons (cons val '()) '())]
       [(eq? var (car dlist)) (cons val (cdr vlist))]
       (else (cons (car vlist) (setVal-split var val (cdr dlist) (cdr vlist) originalState))))))
 
-; print (return as output) variable
+; takes a list and the state. returnlis should be everything start with "return" ex. (return x)
+; returns the updated state, with the third element now being the evaluation of the second element in the returnlis ex. '((x)(2)6) with 6 being the return value
 (define return
   (lambda (returnlis state)
     (cond
@@ -147,7 +149,9 @@
       [(eq? (Mvalue (cadr returnlis) state) '#f) (append (cons (car state) (cons (cadr state) '())) (cons 'false '()))]
       [else (append (cons (car state) (cons (cadr state) '())) (cons (Mvalue (cadr returnlis) state) '()))])))
 
-; if conditional, checks a given conditional in car(cdr) and runs car(cdr(cdr)) if #t or car(cdr(cdr(cdr))) sublist if #f
+; takes a list and the state. If lis should be everything starting with "if" ex. (if (x > 10) (= y (+ y 2)) (...))
+; returns the updated state that results from the while loop, or the original state if the iflis is null or there is no condition
+; if the condition passes, if-interpret is called on the statement to be evaluated. See note on if-interpret for more info
 (define if
   (lambda (iflis state)
     (cond
@@ -157,7 +161,9 @@
       [else (if-interpret (cdddr iflis) state)]
       )))
 
-; if conditional, checks a given conditional in car(cdr) and runs first sublist if #t or second sublist if #f, then it checks the conditional to possibly run itself again
+; takes a list and the state. The list should be everything starting with "while" ex. (while (x > 10) (...)...)
+; returns the state that results from the while loop, or the original state if the whilelis is null
+; If the condition in the whilelis passes, it calls while again with an updated state from Mstate that has executed the inner loop of the while
 (define while
   (lambda (whilelis state)
     (cond
@@ -167,7 +173,8 @@
       [else state]
       )))
 
-; member? if list contains atom, for checking if var has been declared or has value, if x is member of Mstate or Mvalue
+; takes an atom and a list
+; return a boolean, whether the atom is in the list or not
 (define member?
   (lambda (a lis)
     (cond
