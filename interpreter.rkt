@@ -7,8 +7,7 @@
 ; interpreter base, to run parser and pass to helper function interpret
 (define interpreter
   (lambda (filename)
-    (interpret (parser filename) initstate)
-    ))
+    (interpret (parser filename) initstate)))
 
 ; ABSTRACTION
 (define operator (lambda (expression) (car expression)))
@@ -49,8 +48,7 @@
       [(or (eq? 'var (caar tree)) (eq? '= (caar tree)) (eq? 'return (caar tree))) (interpret (cdr tree) (Mstate (car tree) state))]
       [(eq? 'if (caar tree)) (interpret (cdr tree) (if (car tree) state))]
       [(eq? 'while (caar tree)) (interpret (cdr tree) (while (car tree) state))]
-      [else (Mvalue(car tree) state)]
-      )))
+      [else (Mvalue(car tree) state)])))
 
 ; a version of the interpreter helper function used specifically by if statements,
 ; as if statements take in a subset of the larger parser tree,
@@ -64,8 +62,7 @@
       [(or (eq? 'var (caar tree)) (eq? '= (caar tree)) (eq? 'return (caar tree))) (if-interpret (cdr tree) (Mstate (car tree) state))]
       [(eq? 'if (caar tree)) (if-interpret (cdr tree) (if (car tree) state))]
       [(eq? 'while (caar tree)) (cons (while (car tree) state) (if-interpret (cdr tree) state))]
-      [else (Mvalue(car tree) state)]
-      )))
+      [else (Mvalue(car tree) state)])))
 
 ; Mstate takes an expression and a state and updates the state based on that expression
 ; The operator of this expression will be used to determine which helper function to call to update the state with
@@ -131,7 +128,6 @@
       (else (error 'bad-operator)))))
 
  
-
 ; declare variable, if its null just return state IMPORTANT
 ; if it has already been declared, produce a redefining error
 ; if the var is also an assign statement
@@ -142,7 +138,7 @@
     (cond
       [(null? dlis) state]
       [(member? (cadr dlis) (getdlis state)) (error "Variable already declared")]    ; this is how to check if the var has been declared. If it has been, produce an error
-      ; for if something is declared and assigned at the same time; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
+      ; [see below] for if something is declared and assigned at the same time; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
       [(eq? (length dlis) 3) (assign dlis (var (cons (car dlis) (cons (cadr dlis) '())) state))] 
       [else (append (cons (cons (cadr dlis) (getdlis state)) (cons (cons '() (getvlis state)) '())) (getreturnlis state))])))
 
@@ -195,8 +191,7 @@
       [(null? iflis) state]
       [(null? (cdr iflis)) state]
       [(Mvalue (cadr iflis) state) (if-interpret (cons (caddr iflis) '()) (Mstate (caddr iflis) state))]
-      [else (if-interpret (cdddr iflis) state)]
-      )))
+      [else (if-interpret (cdddr iflis) state)])))
 
 ; takes a list and the state. The list should be everything starting with "while" ex. (while (x > 10) (...)...)
 ; returns the state that results from the while loop, or the original state if the whilelis is null
@@ -207,8 +202,7 @@
       [(null? whilelis) state]
       [(null? (cdr whilelis)) state]
       [(Mvalue (cadr whilelis) state) (while whilelis (Mstate (caddr whilelis) state))]
-      [else state]
-      )))
+      [else state])))
 
 ; takes an atom and a list
 ; returns a boolean, whether the atom is in the list or not
