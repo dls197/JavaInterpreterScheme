@@ -1,7 +1,8 @@
 #lang racket
 (require "simpleParser.rkt")
 ; A simple interpreter for Java
-; 
+; Daniel Schnabel, Anthony Testa, and Oliver Traben
+; 3/8/2021
 
 ; interpreter base, to run parser and pass to helper function interpret
 (define interpreter
@@ -10,22 +11,33 @@
     ))
 
 ; initial state
-(define initstate '(()()))
+(define initstate '(()()()))
+
+; return value
+(define returnVal
+  (lambda (state)
+    (caddr state)))
 
 ; interpreter helper function that takes a syntax tree Mstate Mvalue lists and breaks down to be processed using accumulation
 (define interpret
   (lambda (tree state)
     (cond
-      [(null? tree) tree]
-      [(or (eq? 'var (caar tree)) (eq? '= (caar tree))) (interpret (cdr tree) (Mstate (car tree) state))]
-      [(eq? 'return (caar tree)) (return (car tree) state)]
-      [(eq? 'if (caar tree)) (cons (if (car tree) state) (interpret (cdr tree) state))]
-      [(eq? 'while (caar tree)) (cons (while (car tree) state) (interpret (cdr tree) state))]
+      [(null? tree) (returnVal state)]
+      [(or (eq? 'var (caar tree)) (eq? '= (caar tree)) (eq? 'return (caar tree))) (interpret (cdr tree) (Mstate (car tree) state))]
+      [(eq? 'if (caar tree)) (interpret (cdr tree) (if (car tree) state))]
+      [(eq? 'while (caar tree)) (interpret (cdr tree) (while (car tree) state))]
       [else (Mvalue(car tree) state)]
       )))
 
-; ((var x) (= x 10) (var y (+ (* 3 x) 5)) (while (!= (% y x) 3) (= y (+ y 1))) ((if (> x y) (return x)(else (do this))) () () (()))
-
+(define if-interpret
+  (lambda (tree state)
+    (cond
+      [(null? tree) state]
+      [(or (eq? 'var (caar tree)) (eq? '= (caar tree)) (eq? 'return (caar tree))) (if-interpret (cdr tree) (Mstate (car tree) state))]
+      [(eq? 'if (caar tree)) (if-interpret (cdr tree) (if (car tree) state))]
+      [(eq? 'while (caar tree)) (cons (while (car tree) state) (if-interpret (cdr tree) state))]
+      [else (Mvalue(car tree) state)]
+      )))
 
 (define Mstate
   (lambda (exp state)
@@ -33,6 +45,7 @@
       [(null? exp) state]
       [(eq? (operator exp) 'var) (var exp state)]
       [(eq? (operator exp) '=) (assign exp state)]
+      [(eq? (operator exp) 'return) (return exp state)]
       (else state))))
 
 ; assignedVal checks if a given variable has been assigned a value. If it has, the value is returned. If not, an error is returned
@@ -44,7 +57,8 @@
 (define assignedVal-split
   (lambda (var dlist alist originalState)
     (cond
-      [(null? dlist) (error 'variable-not-assigned)]
+      [(null? dlist) (error "Variable not recognized: must declare before assign")]
+      [(and (null? (car alist)) (eq? (car dlist) var)) (error "Variable not assigned a value")]
       [(eq? var (car dlist)) (Mvalue (car alist) originalState)]
       (else (assignedVal-split var (cdr dlist) (cdr alist) originalState)))))
 
@@ -59,6 +73,8 @@
     (cond
       ((eq? expression 'true) #t)
       ((eq? expression 'false) #f)
+      ((eq? expression '#t) #t)
+      ((eq? expression '#f) #f)
       ((number? expression) expression)
       ((not (list? expression)) (assignedVal expression state))
       ((eq? (operator expression) 'and) (and (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
@@ -78,77 +94,12 @@
       ((eq? (operator expression) '*) (* (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '/) (quotient (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '%) (remainder (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
-      ;[(eq? (operator exp) 'var) (Mvalue expression (var expression state))]
-      ;[(eq? (operator exp) '=) (Mvalue expression (assign expression state))]
       (else (error 'bad-operator)))))
-
-
 
 ; ABSTRACTION
 (define operator (lambda (expression) (car expression)))
 (define leftoperand cadr)
-(define rightoperand caddr)
-
-     
-#|
-
-(define M-integer
-  (lambda (expression state)
-    (cond
-      ((number? expression) expression)
-      ((not (list? expression)) (assignedVal expression state))
-      ((eq? (operator expression) '+) (+ (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '-) (- (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '*) (* (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '/) (quotient (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      ((eq? (operator expression) '%) (remainder (M-integer (leftoperand expression) state) (M-integer (rightoperand expression) state)))
-      (else (error 'bad-operator)))))
-
-
-(define M-boolean
-  (lambda (expression state)
-    (cond
-      ((eq? expression 'true) #t)
-      ((eq? expression 'false) #f)
-      ((not (list? expression)) (assignedVal expression state))
-      ((eq? (operator expression) 'and) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '&&) (and (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) 'or) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '||) (or (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '==) (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '!=) (not (eq? (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state))))
-      ((eq? (operator expression) '<) (< (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '>) (> (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '<=) (<= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '>=) (>= (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      ((eq? (operator expression) '!) (not (M-boolean (leftoperand expression) state) (M-boolean (rightoperand expression) state)))
-      (else (error 'bad-operator)))))
-
-before:
-state
-value
-
-Mbool and Mint taken up in operations in value
-
-after:
-initstate
-
-Mstate
-update state with expression (declare and assign, depending on var or =, large cond with operator with operans, cond on oparand [][][][]see lecture[][])
-
-Mvalue
-tiggered by operator, does not update state just returns, no change var, extracts info from state by evaluting expressions
-
-declare value with no value (var, mstate) ((x) ())
-change value with a value (=, mstate) ((x) (1+1)
-prepared value return as single int/bool (called whenever, mvalue) ((x) (2))
-
-value of var = value of right hand side
-
-Mint and Mbool are subsections of Mvalue
-
-
-|#     
+(define rightoperand caddr)   
 
 ; declare variable, if its null or already declared just return Mstate IMPORTANT
 ; otherwise add to Mstate and add null to Mvalue
@@ -156,10 +107,10 @@ Mint and Mbool are subsections of Mvalue
   (lambda (declis state)
     (cond
       [(null? declis) state]
-      [(member? (cdr declis) (car state)) state]    ; this is how to check if something is declared
+      [(member? (cadr declis) (car state)) (error "Variable already declared")]    ; this is how to check if something is declared
       [(eq? (length declis) 3) (assign declis (var (cons (car declis) (cons (cadr declis) '())) state))]   ; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
       ;[(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))] ; if something is declared and assigned at the same time
-      [else (cons (cons (cadr declis) (car state)) (cons (cons '() (cadr state)) '()))])))
+      [else (append (cons (cons (cadr declis) (car state)) (cons (cons '() (cadr state)) '())) (cddr state))])))
 
 ; assign variables, if null return Mvalue
 ; if not declared error, else assign value
@@ -168,51 +119,52 @@ Mint and Mbool are subsections of Mvalue
     (cond
       [(null? =lis) (cdr state)]
       [(not (member? (cadr =lis) (car state))) (error "Variable not recognized: must declare before assign")]
-      [else (setVal (cadr =lis) (caddr =lis) state)])))
+      [else (setVal (cadr =lis) (Mvalue (caddr =lis) state) state)])))
 
 ; setVal sets the value of a given variable, errors if it has not been declared yet
 (define setVal
   (lambda (var val state)
     (cond
-      [(eq? (length (cadr state)) 1) (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '()))]
-      [else (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '()))])))     ;calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
+      ;;[(eq? (length (cadr state)) 1) (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '()))]
+      [else (append (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '())) (cddr state))])))     ;calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
 
 ; setVal-split is called on by setVal. It is given the state in a split form, meaning the two lists inside state are inserted into the function separately
 (define setVal-split
   (lambda (var val dlist vlist originalState)
     (cond
       [(null? dlist) (error 'variable-not-declared)]
+      [(eq? (length dlist) 1) (cons val (car vlist))]
       ;[(and (eq? (length vlist) 1) (eq? var (car dlist))) (cons (cons val '()) '())]
       [(eq? var (car dlist)) (cons val (cdr vlist))]
-      (else (cons (cons (car vlist) (setVal-split var val (cdr dlist) (cdr vlist) originalState)) '())))))
+      (else (cons (car vlist) (setVal-split var val (cdr dlist) (cdr vlist) originalState))))))
 
 ; print (return as output) variable
 (define return
   (lambda (returnlis state)
     (cond
       [(null? returnlis) returnlis]
-      [(eq? (cadr returnlis) '#t) 'true]
-      [(eq? (cadr returnlis) '#f) 'false]
-      [else (Mvalue returnlis state)])))
+      [(eq? (Mvalue (cadr returnlis) state) '#t) (append (cons (car state) (cons (cadr state) '())) (cons 'true '()))]
+      [(eq? (Mvalue (cadr returnlis) state) '#f) (append (cons (car state) (cons (cadr state) '())) (cons 'false '()))]
+      [else (append (cons (car state) (cons (cadr state) '())) (cons (Mvalue (cadr returnlis) state) '()))])))
 
 ; if conditional, checks a given conditional in car(cdr) and runs car(cdr(cdr)) if #t or car(cdr(cdr(cdr))) sublist if #f
 (define if
   (lambda (iflis state)
     (cond
-      [(null? iflis) '()]
-      [(null? (cdr iflis)) '()]
-      [(Mvalue (cadr iflis) state) (interpret (caddr iflis) state)]
-      [else (interpret (cdddr iflis) state)]
+      [(null? iflis) state]
+      [(null? (cdr iflis)) state]
+      [(Mvalue (cadr iflis) state) (if-interpret (cons (caddr iflis) '()) (Mstate (caddr iflis) state))]
+      [else (if-interpret (cdddr iflis) state)]
       )))
 
 ; if conditional, checks a given conditional in car(cdr) and runs first sublist if #t or second sublist if #f, then it checks the conditional to possibly run itself again
 (define while
   (lambda (whilelis state)
     (cond
-      [(null? whilelis) '()]
-      [(null? (cdr whilelis)) '()]
+      [(null? whilelis) state]
+      [(null? (cdr whilelis)) state]
       [(Mvalue (cadr whilelis) state) (while whilelis (Mstate (caddr whilelis) state))]
-      [else '()]
+      [else state]
       )))
 
 ; member? if list contains atom, for checking if var has been declared or has value, if x is member of Mstate or Mvalue
