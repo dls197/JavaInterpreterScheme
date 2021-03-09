@@ -10,15 +10,38 @@
     (interpret (parser filename) initstate)
     ))
 
-; initial state
+; ABSTRACTION
+(define operator (lambda (expression) (car expression)))
+(define leftoperand cadr)
+(define rightoperand caddr)
+
+; gets the declaration list from the state
+(define (getdlis state) (car state))
+
+; gets the value list from the state
+(define (getvlis state) (cadr state))
+
+; gets the return value from the state
+(define (getreturn state) (caddr state))
+
+; gets the return value as a list from state
+(define (getreturnlis state) (cddr state))
+
+; getrs the value list and the return list from the state
+(define (getvrlis state) (cdr state))
+
+; initial state abstraction, the list format of the state
 (define initstate '(()()()))
 
-; return value
+; return value abstraction, returns the third list (the list of return values) in the state
 (define returnVal
   (lambda (state)
-    (caddr state)))
+    (getreturn state)))
+
+; END ABSTRACTION
 
 ; interpreter helper function that takes a syntax tree Mstate Mvalue lists and breaks down to be processed using accumulation
+; each line of cond corresponds to a certain type of statement coming from the parser
 (define interpret
   (lambda (tree state)
     (cond
@@ -29,6 +52,11 @@
       [else (Mvalue(car tree) state)]
       )))
 
+; a version of the interpreter helper function used specifically by if statements,
+; as if statements take in a subset of the larger parser tree,
+; they are designed to reach a null tree before the rest of program and finished running (the usual state from which a null tree would be reached)
+; as such, they cannot simply retrun the return value (returnVal) of the program, but must return the state as a whole so it can continue to be operated on
+; this way, the rest of the program can recieve the proper state to continue processing the parser tree
 (define if-interpret
   (lambda (tree state)
     (cond
@@ -39,6 +67,9 @@
       [else (Mvalue(car tree) state)]
       )))
 
+; Mstate takes an expression and a state and updates the state based on that expression
+; The operator of this expression will be used to determine which helper function to call to update the state with
+; a "var" will preform a declare; a "=" will preform an assignment; and a "return" will preform a return
 (define Mstate
   (lambda (exp state)
     (cond
@@ -51,74 +82,78 @@
 ; assignedVal checks if a given variable has been assigned a value. If it has, the value is returned. If not, an error is returned
 (define assignedVal
   (lambda (var state)
-    (assignedVal-split var (car state) (cadr state) state)))     ;calls on assignedVal-split and passes in the variable, the list of declared variables, and the list of declared variables' values
+    (assignedVal-split var (getdlis state) (getvlis state) state)))      ; calls on assignedVal-split and passes in the variable, the list of declared variables, and the list of declared variables' values
 
 ; assignedVal-split is called on by assignedVal. It is given the state in a split form, meaning the two lists inside state are inserted into the function separately
 (define assignedVal-split
-  (lambda (var dlist alist originalState)
+  (lambda (var dlist vlist originalState)
     (cond
-      [(null? dlist) (error "Variable not recognized: must declare before assign")]
-      [(and (null? (car alist)) (eq? (car dlist) var)) (error "Variable not assigned a value")]
-      [(eq? var (car dlist)) (Mvalue (car alist) originalState)]
-      (else (assignedVal-split var (cdr dlist) (cdr alist) originalState)))))
+      [(null? dlist) (error "Variable not recognized: must declare before assign")] ; Using a variable before it is declared
+      [(and (null? (car vlist)) (eq? (car dlist) var)) (error "Variable not assigned a value")] ; Using a variable before it is assigned to a value, even though it is declared
+      [(eq? var (car dlist)) (Mvalue (car vlist) originalState)]
+      (else (assignedVal-split var (cdr dlist) (cdr vlist) originalState)))))
 
-(define Mstate_remove
-  (lambda (var state)
-    (cond
-      [(null? state) '(()())]
-      )))
-
+; Mvalue returns the value of a given expression (can either be an expression of integers or an expression of boolean values)
 (define Mvalue
   (lambda (expression state)
     (cond
+      ; true/false statements:
       ((eq? expression 'true) #t)
       ((eq? expression 'false) #f)
       ((eq? expression '#t) #t)
       ((eq? expression '#f) #f)
+      ; numbers:
       ((number? expression) expression)
+      ; variables:
+      ;if the expression is not a list, not #t or #f, and not a number (indicated from the line above), then it must be a variable. Thus, assignedVal is called to get the variable's assigned value
       ((not (list? expression)) (assignedVal expression state))
+      ; boolean operators:
       ((eq? (operator expression) 'and) (and (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '&&) (and (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) 'or) (or (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '||) (or (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ((eq? (operator expression) '!) (not (Mvalue (leftoperand expression) state))) ; a unary operation
+      ; comparison operators:
       ((eq? (operator expression) '==) (eq? (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '!=) (not (eq? (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state))))
       ((eq? (operator expression) '<) (< (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '>) (> (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '<=) (<= (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '>=) (>= (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
-      ((eq? (operator expression) '!) (not (Mvalue (leftoperand expression) state)))
+      ; mathetmatical operators:
       ((eq? (operator expression) '+) (+ (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
-      ((and (eq? (operator expression) '-) (eq? (length expression) 2)) (- (Mvalue (leftoperand expression) state)))
+      ((and (eq? (operator expression) '-) (eq? (length expression) 2)) (- (Mvalue (leftoperand expression) state))) ; a unary operation
       ((eq? (operator expression) '-) (- (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '*) (* (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '/) (quotient (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
       ((eq? (operator expression) '%) (remainder (Mvalue (leftoperand expression) state) (Mvalue (rightoperand expression) state)))
+      ; error:
       (else (error 'bad-operator)))))
 
-; ABSTRACTION
-(define operator (lambda (expression) (car expression)))
-(define leftoperand cadr)
-(define rightoperand caddr)   
+ 
 
-; declare variable, if its null or already declared just return Mstate IMPORTANT
-; otherwise add to Mstate and add null to Mvalue
+; declare variable, if its null just return state IMPORTANT
+; if it has already been declared, produce a redefining error
+; if the var is also an assign statement
+; i.e. (length declis) = 3) then var is called again within an assign statement so the var will be added to the declaration list and the assigned value will be added to the value list
+; otherwise, the var is added to Mstate in the declaration list
 (define var
-  (lambda (declis state)
+  (lambda (dlis state)
     (cond
-      [(null? declis) state]
-      [(member? (cadr declis) (car state)) (error "Variable already declared")]    ; this is how to check if something is declared
-      [(eq? (length declis) 3) (assign declis (var (cons (car declis) (cons (cadr declis) '())) state))]   ; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
-      ;[(eq? (length declis) 3) (cons (cons (cadr declis) (car state)) (cons (assign declis state) (cadr state)))] ; if something is declared and assigned at the same time
-      [else (append (cons (cons (cadr declis) (car state)) (cons (cons '() (cadr state)) '())) (cddr state))])))
+      [(null? dlis) state]
+      [(member? (cadr dlis) (getdlis state)) (error "Variable already declared")]    ; this is how to check if the var has been declared. If it has been, produce an error
+      ; for if something is declared and assigned at the same time; =lis for assign takes '(= varname val) declis will have '(var varname val), however first atom is ignored in assign
+      [(eq? (length dlis) 3) (assign dlis (var (cons (car dlis) (cons (cadr dlis) '())) state))] 
+      [else (append (cons (cons (cadr dlis) (getdlis state)) (cons (cons '() (getvlis state)) '())) (getreturnlis state))])))
 
-; assign variables, if null return Mvalue
-; if not declared error, else assign value
+; assign variables, if null return state
+; if the variable has not been declared yet, produce an error
+; else, add the assigned value to the value list using the setVal helper method
 (define assign
   (lambda (=lis state)
     (cond
-      [(null? =lis) (cdr state)]
-      [(not (member? (cadr =lis) (car state))) (error "Variable not recognized: must declare before assign")]
+      [(null? =lis) (getvrlis state)]
+      [(not (member? (cadr =lis) (getdlis state))) (error "Variable not recognized: must declare before assign")]
       [else (setVal (cadr =lis) (Mvalue (caddr =lis) state) state)])))
 
 ; takes two atoms and the state, sets the value of a variable
@@ -126,9 +161,11 @@
 (define setVal
   (lambda (var val state)
     (cond
-      [else (append (cons (car state) (cons (setVal-split var val (car state) (cadr state) state) '())) (cddr state))])))     ;calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
+      ; calls on setVal-split and passes in the variable, value, the list of declared variables, and the list of declared variables' values
+      [else (append (cons (getdlis state) (cons (setVal-split var val (getdlis state) (getvlis state) state) '())) (getreturnlis state))])))
 
 ; takes two atom and two lists, sets the variable equal to the value specified
+; the two lists are taken from the state, one being the list of declared variables and the other being the list of values for those variables. 
 ; returns an updated state
 ; only called by setVal
 (define setVal-split
@@ -145,9 +182,9 @@
   (lambda (returnlis state)
     (cond
       [(null? returnlis) returnlis]
-      [(eq? (Mvalue (cadr returnlis) state) '#t) (append (cons (car state) (cons (cadr state) '())) (cons 'true '()))]
-      [(eq? (Mvalue (cadr returnlis) state) '#f) (append (cons (car state) (cons (cadr state) '())) (cons 'false '()))]
-      [else (append (cons (car state) (cons (cadr state) '())) (cons (Mvalue (cadr returnlis) state) '()))])))
+      [(eq? (Mvalue (cadr returnlis) state) '#t) (append (cons (getdlis state) (cons (getvlis state) '())) (cons 'true '()))]
+      [(eq? (Mvalue (cadr returnlis) state) '#f) (append (cons (getdlis state) (cons (getvlis state) '())) (cons 'false '()))]
+      [else (append (cons (getdlis state) (cons (getvlis state) '())) (cons (Mvalue (cadr returnlis) state) '()))])))
 
 ; takes a list and the state. If lis should be everything starting with "if" ex. (if (x > 10) (= y (+ y 2)) (...))
 ; returns the updated state that results from the while loop, or the original state if the iflis is null or there is no condition
@@ -174,7 +211,7 @@
       )))
 
 ; takes an atom and a list
-; return a boolean, whether the atom is in the list or not
+; returns a boolean, whether the atom is in the list or not
 (define member?
   (lambda (a lis)
     (cond
